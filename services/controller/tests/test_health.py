@@ -1,5 +1,6 @@
 # services/controller/tests/test_health.py
 from fastapi.testclient import TestClient
+
 from ctrl.main import app
 
 client = TestClient(app)
