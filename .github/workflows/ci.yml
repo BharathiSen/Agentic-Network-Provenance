@@ -1,17 +1,50 @@
 # .github/workflows/ci.yml
-name: CI
+# =============================================================================
+# Continuous integration: lint + tests on every push and pull request.
+#
+# This is the safety net behind Phase 0's "done when make test and make lint
+# pass" -- it re-checks that claim on a clean Linux machine from a fresh clone,
+# which catches the two classes of bug a local run never will:
+#   * files that work locally but were never committed (git ignores empty dirs --
+#     hence the .gitkeep files in eval/, docs/ and services/verifier-ts/),
+#   * anything relying on Windows-specific behaviour or on case-insensitive
+#     filenames (Linux is case-sensitive: DESIGN.md != DESIGN.MD).
+# =============================================================================
+
+name: CI  # shown as the check name on commits and PRs
 
 on:
-  push:
-  pull_request:
+  push:          # every branch; catches breakage before a PR is even opened
+  pull_request:  # also on PRs, so forks are covered
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Linux, deliberately different from the Windows dev box
+
     steps:
+      # Clone the repo at the triggering commit into the runner's workspace.
       - uses: actions/checkout@v4
+
+      # Install the uv binary. Must come before any `uv` command below.
       - uses: astral-sh/setup-uv@v3
+
+      # Install CPython 3.12 specifically. pyproject only says ">=3.12", so
+      # without this the runner's default Python decides the version and CI could
+      # silently drift onto a newer release than developers use.
       - run: uv python install 3.12
+
+      # Build .venv from uv.lock -- EXACT pinned versions, not a fresh resolve.
+      # This is why uv.lock must be committed: it makes CI reproducible.
       - run: uv sync
+
+      # GATE 1: lint. Fails the build on style/import-order violations (rule I001
+      # among them). Equivalent to `make lint`.
       - run: uv run ruff check .
+
+      # GATE 2: tests. Equivalent to `make test`. A non-zero exit fails the job.
       - run: uv run pytest
+
+      # NOT ENFORCED HERE: `black --check`. Formatting is left to the developer
+      # via `make fmt`. If you ever want CI to enforce it, add a [tool.black]
+      # section to pyproject.toml first (line-length = 100, target-version =
+      # ["py312"]) -- otherwise black defaults to 88 and fights ruff's 100.

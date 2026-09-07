@@ -1,0 +1,3 @@
+Placeholder so git tracks this directory. Phase 6 fills it with the
+evaluation harness. Listed in pyproject's [tool.pytest.ini_options]
+testpaths, so pytest will collect tests from here automatically.

@@ -1,38 +1,82 @@
 # pyproject.toml
+# =============================================================================
+# The single source of truth for this repo's Python setup: dependencies, the
+# linter config, and the pytest config all live here rather than in scattered
+# setup.cfg / .flake8 / pytest.ini files.
+#
+# uv reads this file. `uv sync` resolves it into uv.lock and builds .venv;
+# `uv run <cmd>` then executes <cmd> inside that venv without needing activation.
+# =============================================================================
+
 [project]
 name = "agentic-oam-provenance"
 version = "0.1.0"
 description = "Provenance and verification prototype for AI-driven OAM test selection"
+
+# Floor, not a pin. 3.12 is required for the modern typing syntax the Phase 1
+# pydantic models use; CI installs exactly 3.12 (see .github/workflows/ci.yml).
 requires-python = ">=3.12"
+
+# One flat dependency list for the whole monorepo -- every service shares one
+# venv. Simpler than per-service dependency sets while the project is small.
+# All bounds are lower-only (>=), so `uv sync` takes the newest compatible
+# release and uv.lock is what actually pins exact versions for reproducibility.
 dependencies = [
-  "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
-  "pydantic>=2.8",
-  "sqlalchemy>=2.0",
-  "alembic>=1.13",
-  "psycopg[binary]>=3.2",
-  "redis>=5.0",
-  "pycose>=1.1",
-  "cbor2>=5.6",
-  "networkx>=3.3",
-  "numpy>=1.26",
-  "httpx>=0.27",
-  "pytest>=8.3",
-  "pytest-asyncio>=0.24",
-  "ruff>=0.6",
-  "black>=24.8",
+  # --- web layer: how the controller and provenance-store are served ---
+  "fastapi>=0.115",           # ASGI framework: routing, validation, OpenAPI docs
+  "uvicorn[standard]>=0.30",  # the ASGI server that runs them; [standard] adds uvloop/httptools
+  "pydantic>=2.8",            # v2 required -- Phase 1's provenance models depend on v2 validators
+
+  # --- persistence: the provenance store's append-only backing ---
+  "sqlalchemy>=2.0",          # ORM/core, 2.0 style; Phase 2 defines the tables
+  "alembic>=1.13",            # schema migrations, so the DB can evolve across phases
+  "psycopg[binary]>=3.2",     # PostgreSQL driver; [binary] ships prebuilt wheels (no local C toolchain)
+  "redis>=5.0",               # cache / nonce + freshness bookkeeping (see DESIGN.md "freshness")
+
+  # --- cryptography + serialisation: the actual provenance mechanism ---
+  "pycose>=1.1",              # COSE_Sign1 signing/verification of provenance statements
+  "cbor2>=5.6",               # CBOR codec -- COSE payloads are CBOR, not JSON
+
+  # --- analysis: used by the OAM test-selection and evaluation work ---
+  "networkx>=3.3",            # network topology graphs for test selection
+  "numpy>=1.26",              # numerics for the Phase 6 evaluation harness
+
+  # --- tooling: HTTP client, tests, lint, format ---
+  "httpx>=0.27",              # async HTTP client; also what fastapi.testclient runs on
+  "pytest>=8.3",              # test runner
+  "pytest-asyncio>=0.24",     # lets pytest await async tests (needed from Phase 2 on)
+  "ruff>=0.6",                # linter + import sorter -- the gate CI enforces
+  "black>=24.8",              # formatter, run manually via `make fmt`; CI does not enforce it
 ]
 
 [tool.uv]
+# This repo is an application, not a distributable library: there is nothing to
+# build or install, so tell uv not to try. Consequence: the service packages are
+# NOT installed into .venv, which is exactly why conftest.py must extend sys.path
+# and why running uvicorn by hand needs --app-dir.
 package = false
 
 [tool.ruff]
-line-length = 100
-target-version = "py312"
+line-length = 100          # wider than black's 88 default; see the note in [tool.black] below
+target-version = "py312"   # lets ruff assume 3.12 syntax and flag outdated idioms
 
 [tool.ruff.lint.isort]
+# Without this, ruff treats `ctrl`/`pstore`/`evidence` as third-party (they are
+# not installed, so it cannot tell) and demands they be sorted in among fastapi
+# et al. Declaring them first-party puts them in their own group BELOW the
+# third-party block, which is the conventional layout -- and is what the blank
+# line in each test file's import section is satisfying (rule I001).
+# Add any new service package here when you create one.
 known-first-party = ["ctrl", "pstore", "evidence"]
 
 [tool.pytest.ini_options]
+# Where to look for tests. eval/ is listed ahead of time for the Phase 6 harness;
+# pytest tolerates it being empty or absent.
 testpaths = ["services", "eval"]
+
+# REQUIRED, do not remove: services/controller/tests/test_health.py and
+# services/provenance-store/tests/test_health.py share a basename and neither
+# tests/ dir is a package. Under pytest's default "prepend" import mode both map
+# to the module name `test_health` and collection dies with "import file
+# mismatch". importlib mode derives a unique module name from the full path.
 addopts = "--import-mode=importlib"

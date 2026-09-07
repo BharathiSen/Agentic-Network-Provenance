@@ -1,33 +1,90 @@
 # docker-compose.yml
+# =============================================================================
+# The local backing services. Neither FastAPI app is containerised in Phase 0 --
+# you run those with uvicorn on the host -- so this file only provides the two
+# stateful dependencies the later phases need.
+#
+#   docker compose up -d     start in the background   (= make up)
+#   docker compose down -v   stop AND DELETE volumes   (= make down; destroys data)
+#   docker compose ps        what is running, and on which host ports
+#   docker compose logs -f db
+#
+# Container names are derived from the DIRECTORY name, not from pyproject's
+# `name` field, so they are agentic-network-provenance-db-1 and
+# agentic-network-provenance-redis-1. Prefer `docker compose exec db ...` over
+# `docker exec <long-name> ...` so you never have to remember them.
+# =============================================================================
+
 services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL -- the durable, append-only home for signed provenance statements.
+  # Phase 2 creates the schema here via Alembic.
+  # ---------------------------------------------------------------------------
   db:
-    image: postgres:16
+    image: postgres:16  # pinned to a major version so the on-disk format stays stable
+
     environment:
+      # These three are read by the postgres image's first-boot init script. They
+      # only take effect when the data volume is EMPTY -- changing them later does
+      # nothing until you `docker compose down -v` and recreate.
+      # Dev-only throwaway credentials; real deployments must inject secrets.
       POSTGRES_USER: provenance
       POSTGRES_PASSWORD: provenance
-      POSTGRES_DB: provenance
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U provenance"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      POSTGRES_DB: provenance  # database auto-created on first boot
 
+    ports:
+      # "HOST:CONTAINER". Host 5432 -> container 5432.
+      # Host connection string:
+      #   postgresql://provenance:provenance@localhost:5432/provenance
+      # From another container on this network it is just `db:5432` -- the
+      # service name resolves via compose's internal DNS and ignores this mapping.
+      - "5432:5432"
+
+    volumes:
+      # Named volume, so data survives `docker compose down` (but NOT `down -v`).
+      # Without this every restart would give you an empty database.
+      - db_data:/var/lib/postgresql/data
+
+    healthcheck:
+      # pg_isready exits 0 only once Postgres is accepting connections. This is
+      # what makes `docker compose ps` report "healthy" rather than merely "Up",
+      # and what a future `depends_on: condition: service_healthy` would wait for.
+      test: ["CMD-SHELL", "pg_isready -U provenance"]
+      interval: 5s   # probe every 5s
+      timeout: 3s    # a probe taking >3s counts as a failure
+      retries: 5     # 5 consecutive failures => marked unhealthy (~25s grace on boot)
+
+  # ---------------------------------------------------------------------------
+  # Redis -- short-lived state: nonces and freshness/valid_until bookkeeping
+  # (see the "freshness" section of DESIGN.md), plus caching.
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7
+
     ports:
+      # NOTE THE NON-STANDARD HOST PORT. It is 6382, not 6379, because another
+      # project's container already publishes 6379 on this machine; binding it
+      # twice fails with "port is already allocated".
+      # From the host:            redis://localhost:6382
+      # From another container:   redis://redis:6379   (unaffected by this mapping)
       - "6382:6379"
+
     volumes:
+      # Redis is used as a cache here, so persistence is not strictly required --
+      # but keeping the volume means a restart does not silently drop state you
+      # were mid-way through inspecting.
       - redis_data:/data
+
     healthcheck:
+      # redis-cli ping returns PONG once the server is ready.
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
+# Declares the named volumes referenced above. Empty values mean "use Docker's
+# defaults"; Docker prefixes them with the project name, giving
+# agentic-network-provenance_db_data and ..._redis_data.
 volumes:
   db_data:
   redis_data:
