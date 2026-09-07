@@ -1,0 +1,34 @@
+# pyproject.toml
+[project]
+name = "agentic-oam-provenance"
+version = "0.1.0"
+description = "Provenance and verification prototype for AI-driven OAM test selection"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.8",
+  "sqlalchemy>=2.0",
+  "alembic>=1.13",
+  "psycopg[binary]>=3.2",
+  "redis>=5.0",
+  "pycose>=1.1",
+  "cbor2>=5.6",
+  "networkx>=3.3",
+  "numpy>=1.26",
+  "httpx>=0.27",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.6",
+  "black>=24.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["services", "eval"]
