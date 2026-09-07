@@ -6,9 +6,10 @@ if /i "%~1"=="up"   goto up
 if /i "%~1"=="down" goto down
 if /i "%~1"=="test" goto test
 if /i "%~1"=="lint" goto lint
-if /i "%~1"=="fmt"  goto fmt
+if /i "%~1"=="fmt"  goto fmt
+if /i "%~1"=="schema" goto schema
 if not "%~1"=="" echo make.cmd: unknown target "%~1"
-echo usage: make ^<up^|down^|test^|lint^|fmt^>
+echo usage: make ^<up^|down^|test^|lint^|fmt^|schema^>
 exit /b 2
 
 :up
@@ -29,4 +30,8 @@ exit /b %errorlevel%
 
 :fmt
 uv run black .
-exit /b %errorlevel%
+exit /b %errorlevel%
+
+:schema
+uv run python scripts/export_schema.py
+exit /b %errorlevel%

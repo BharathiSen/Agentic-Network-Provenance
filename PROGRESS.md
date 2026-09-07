@@ -1,7 +1,7 @@
 # Progress
 
 - [x] Phase 0: Repo scaffold and project memory
-- [ ] Phase 1: Information model and signing
+- [x] Phase 1: Information model and signing
 - [ ] Phase 2: Provenance store
 - [ ] Phase 3: Evidence and verification function
 - [ ] Phase 4: Network controller stub

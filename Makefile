@@ -1,4 +1,4 @@
-.PHONY: up down test lint fmt
+.PHONY: up down test lint fmt schema
 
 up:
 	docker compose up -d
@@ -14,3 +14,6 @@ lint:
 
 fmt:
 	uv run black .
+
+schema:
+	uv run python scripts/export_schema.py
