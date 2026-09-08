@@ -58,8 +58,9 @@ def test_sign_then_verify_round_trips():
 def test_verifies_with_public_key_alone():
     # This is how Phase 2 will verify: the store holds only the public half.
     key = generate_keypair()
-    signed = sign_statement(_statement(), key)
-    assert verify_statement(signed, public_key_of(key)) == _statement()
+    stmt = _statement()
+    signed = sign_statement(stmt, key)
+    assert verify_statement(signed, public_key_of(key)) == stmt
 
 
 def test_signed_message_is_a_tagged_cose_sign1():
@@ -162,11 +163,12 @@ def test_save_public_key_does_not_leak_private_material(tmp_path):
 
 def test_saved_public_key_still_verifies(tmp_path):
     key = generate_keypair()
-    signed = sign_statement(_statement(), key)
+    stmt = _statement()
+    signed = sign_statement(stmt, key)
     pub_path = tmp_path / "public.cbor"
     save_public_key(key, pub_path)
 
-    assert verify_statement(signed, load_key(pub_path)) == _statement()
+    assert verify_statement(signed, load_key(pub_path)) == stmt
 
 
 def test_private_key_round_trips(tmp_path):
