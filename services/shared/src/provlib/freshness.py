@@ -3,6 +3,7 @@ Freshness/replay checking. `seen_nonces` is caller-owned so the caller
 controls its lifetime — Phase 2 backs it with Redis so replay detection
 survives a restart; a test just passes a plain set().
 """
+
 from __future__ import annotations
 
 from collections.abc import MutableSet

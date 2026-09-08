@@ -35,7 +35,16 @@ dependencies = [
 
   # --- cryptography + serialisation: the actual provenance mechanism ---
   "pycose>=1.1",              # COSE_Sign1 signing/verification of provenance statements
-  "cbor2>=5.6",               # CBOR codec -- COSE payloads are CBOR, not JSON
+  # UPPER BOUND IS LOAD-BEARING, do not relax to a bare >=. cbor2 6.0 changed
+  # the decoder so the value inside a CBORTag comes back as a tuple instead of
+  # a list. pycose 1.1.0's CoseMessage.decode does `if isinstance(cose_obj,
+  # list)` and raises TypeError("Bytes cannot be decoded as COSE message")
+  # otherwise, so EVERY verify_statement() call fails under cbor2 >= 6 --
+  # including a record just signed with the correct key. pycose 1.1.0 is the
+  # latest release and declares an unbounded cbor2 dependency, so there is no
+  # newer pycose to upgrade to; capping cbor2 is the only fix. 5.9.0 (the
+  # newest 5.x) is verified working.
+  "cbor2>=5.6,<6",            # CBOR codec -- COSE payloads are CBOR, not JSON
 
   # --- analysis: used by the OAM test-selection and evaluation work ---
   "networkx>=3.3",            # network topology graphs for test selection
@@ -60,6 +69,14 @@ package = false
 line-length = 100          # wider than black's 88 default; see the note in [tool.black] below
 target-version = "py312"   # lets ruff assume 3.12 syntax and flag outdated idioms
 
+[tool.black]
+# Matches [tool.ruff] line-length above so the two tools do not fight, and pins
+# the target so black does not infer py3.15 from the open-ended requires-python
+# and then trip its own AST safety check on a 3.12 interpreter. This is the
+# section the `make fmt` caveat in the Makefile asks for.
+line-length = 100
+target-version = ["py312"]
+
 [tool.ruff.lint.isort]
 # Without this, ruff treats `ctrl`/`pstore`/`evidence` as third-party (they are
 # not installed, so it cannot tell) and demands they be sorted in among fastapi
@@ -67,7 +84,7 @@ target-version = "py312"   # lets ruff assume 3.12 syntax and flag outdated idio
 # third-party block, which is the conventional layout -- and is what the blank
 # line in each test file's import section is satisfying (rule I001).
 # Add any new service package here when you create one.
-known-first-party = ["ctrl", "pstore", "evidence"]
+known-first-party = ["ctrl", "pstore", "evidence", "provlib"]
 
 [tool.pytest.ini_options]
 # Where to look for tests. eval/ is listed ahead of time for the Phase 6 harness;

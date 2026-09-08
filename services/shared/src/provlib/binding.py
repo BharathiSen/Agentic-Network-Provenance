@@ -3,6 +3,7 @@ config_binding: a digest over the exact configuration that produced a
 decision, so a signed record becomes invalid the moment that configuration
 changes (model swap, policy update, tool-set change).
 """
+
 from __future__ import annotations
 
 import hashlib

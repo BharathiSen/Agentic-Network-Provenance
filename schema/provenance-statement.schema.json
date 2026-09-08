@@ -1,0 +1,193 @@
+{
+  "$defs": {
+    "EvidenceDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_version": {
+          "minLength": 1,
+          "title": "Model Version",
+          "type": "string"
+        },
+        "policy_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Version"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "input_ref": {
+          "minLength": 1,
+          "title": "Input Ref",
+          "type": "string"
+        },
+        "config_binding": {
+          "format": "binary",
+          "maxLength": 32,
+          "minLength": 32,
+          "title": "Config Binding",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "model_version",
+        "confidence",
+        "input_ref",
+        "config_binding"
+      ],
+      "title": "EvidenceDescriptor",
+      "type": "object"
+    },
+    "Freshness": {
+      "additionalProperties": false,
+      "properties": {
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        },
+        "nonce": {
+          "format": "binary",
+          "minLength": 16,
+          "title": "Nonce",
+          "type": "string"
+        }
+      },
+      "required": [
+        "valid_until",
+        "nonce"
+      ],
+      "title": "Freshness",
+      "type": "object"
+    },
+    "OriginClass": {
+      "enum": [
+        "human",
+        "deterministic-automation",
+        "model-assisted",
+        "autonomous-model"
+      ],
+      "title": "OriginClass",
+      "type": "string"
+    },
+    "VerificationClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "performed": {
+          "title": "Performed",
+          "type": "boolean"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "result": {
+          "$ref": "#/$defs/VerificationResult"
+        },
+        "verified_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verified At"
+        }
+      },
+      "required": [
+        "performed",
+        "result"
+      ],
+      "title": "VerificationClaim",
+      "type": "object"
+    },
+    "VerificationResult": {
+      "enum": [
+        "pass",
+        "fail",
+        "not-run"
+      ],
+      "title": "VerificationResult",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "subject_ref": {
+      "minLength": 1,
+      "title": "Subject Ref",
+      "type": "string"
+    },
+    "origin_class": {
+      "$ref": "#/$defs/OriginClass"
+    },
+    "evidence": {
+      "$ref": "#/$defs/EvidenceDescriptor"
+    },
+    "verification": {
+      "$ref": "#/$defs/VerificationClaim"
+    },
+    "freshness": {
+      "$ref": "#/$defs/Freshness"
+    }
+  },
+  "required": [
+    "subject_ref",
+    "origin_class",
+    "evidence",
+    "verification",
+    "freshness"
+  ],
+  "title": "ProvenanceStatement",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schema/provenance-statement.schema.json",
+  "x-encoding": {
+    "format": "CBOR (RFC 8949), canonical encoding",
+    "envelope": "COSE_Sign1 (RFC 9052), CBOR tag 18",
+    "algorithm": "ES256 (ECDSA w/ SHA-256 over NIST P-256), RFC 9053 s2.1",
+    "notes": [
+      "Wire property names are exactly the snake_case names in this schema.",
+      "The Internet-Draft and YANG module spell the same fields in kebab-case (model-id, config-binding, valid-until, verified-at, origin-class).",
+      "Properties shown as type 'string' with format 'binary' are CBOR byte strings (major type 2) on the wire, NOT base64 text.",
+      "Date-time properties are CBOR tag 0 (RFC 3339 string), normalised to UTC.",
+      "Optional properties are encoded as CBOR null, not omitted.",
+      "Unknown properties are rejected: every model forbids extras.",
+      "config_binding is exactly 32 bytes; nonce is at least 16 bytes.",
+      "The COSE_Sign1 payload is the canonical CBOR encoding of this object."
+    ],
+    "config_binding": {
+      "algorithm": "SHA-256",
+      "preimage": "UTF-8 of json.dumps({model_id, model_version, policy_version, tool_manifest}, sort_keys=True, separators=(',', ':')) -- a structurally unambiguous serialisation, so distinct configurations cannot share a preimage",
+      "output": "the raw 32-byte digest"
+    }
+  }
+}
